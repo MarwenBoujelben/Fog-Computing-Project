@@ -10,18 +10,20 @@ UPLOADS_FOLDER = 'uploads/'  # Specify the folder where you want to store the im
 # Create a dictionary to store locks for each image
 image_locks = {}
 image_list = []
-node_availability = [True]*2 
-imagesSent={}
+node_availability = [True] * 2
+imagesSent = {}
 predictions = {}
-imageConnection={}
-counter=0
+imageConnection = {}
+counter = 0
 counter_lock = threading.Lock()  # Create a lock for counter access
 node_availability_locks = threading.Lock()
 
-def send_image_to_node(node_address, image_path):
+def send_image_to_node(node_address, image_data):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect(node_address)
-        s.sendall(pickle.dumps(image_path))
+        s.sendall(b'ImageStart')  # Start the image transmission
+        s.sendall(image_data)  # Send the image data
+        s.sendall(b'ImageEnd')  # End the image transmission
         response = s.recv(1024)
         return pickle.loads(response)
 
@@ -50,7 +52,7 @@ def handle_connection(connection, address):
             with open(image_path, 'wb') as image_file:
                 image_file.write(image_data)
             image_list.append(image_path)
-            imageConnection[image_path]=connection
+            imageConnection[image_path] = connection
             # Clear the image data after saving the image
             image_data = b''
         if receiving:
@@ -58,10 +60,10 @@ def handle_connection(connection, address):
 
 def run_app():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        server_socket.bind(('192.168.1.18', 100))
+        server_socket.bind(('192.168.43.63', 100))
         server_socket.listen()
 
-        print(f"Server listening on {'192.168.1.18'}:{100}")
+        print(f"Server listening on {'192.168.43.63'}:{100}")
 
         while True:
             connection, address = server_socket.accept()
@@ -69,42 +71,46 @@ def run_app():
 
 def process_images():
     num_nodes = 2
-    node_addresses = [("192.168.1.18", 200), ("192.168.1.18", 300)]
-  
+    node_addresses = [("192.168.43.171", 200), ("192.168.43.63", 300)]
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_nodes) as executor:
         futures = []
         print(image_list)
-        while True:  
+        while True:
             for j in range(num_nodes):
-                if not image_list:  
+                if not image_list:
                     break
                 with node_availability_locks:
                     if node_availability[j]:
-                        image_path = image_list.pop(0)  
+                        image_path = image_list.pop(0)
                         imagesSent[image_path] = j
-            # Create a new lock for this image
+                # Create a new lock for this image
                         image_locks[image_path] = threading.Lock()
-                        node_availability[j] = False  
+                        node_availability[j] = False
 
-                        future = executor.submit(send_image_to_node, node_addresses[j], image_path)
-                        futures.append((future, image_path))  
+                        # Read the image data
+                        with open(image_path, 'rb') as image_file:
+                            image_data = image_file.read()
 
-            for future, image_path in futures:  
+                        future = executor.submit(send_image_to_node, node_addresses[j], image_data)
+                        futures.append((future, image_path))
+
+            for future, image_path in futures:
                 if future.done():
                     response = future.result()
                     node_index = imagesSent[image_path]
-                    print(f"Objects detected by Node {node_index+1}: {response}")
+                    print(f"Objects detected by Node {node_index + 1}: {response}")
                     futures.remove((future, image_path))
                     node_availability[node_index] = True
                     predictions[image_path] = response
-            # Acquire the lock before deleting the image
+                    # Acquire the lock before deleting the image
                     with image_locks[image_path]:
                         if os.path.exists(image_path):
                             os.remove(image_path)
-                # Send acknowledgment
-                        if image_path in imageConnection:
-                            imageConnection[image_path].send(bytes('\n'.join(response), 'utf-8'))
-                            del imageConnection[image_path]
+                    # Send acknowledgment
+                    if image_path in imageConnection:
+                        imageConnection[image_path].send(bytes('\n'.join(response), 'utf-8'))
+                        del imageConnection[image_path]
 
 
 if __name__ == "__main__":

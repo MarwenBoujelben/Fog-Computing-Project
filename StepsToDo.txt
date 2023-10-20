@@ -1,0 +1,16 @@
+1-Cloner la répertoire
+2-ouvrir le dossier
+3-installer les dépendances des codes de server et noeuds Fog avec pip install "nom de la dépendance" ( il faut que pip soit a jour essayer python -m pip install --upgrade pip)
+4-changer les adresses IP des noueds et server selon les adresses que vous configurer (soit chaque noeud et le server dans un pc different, soit dans une meme machine mais avec un port different )
+Remarque: le dossier uploads doit etre mis au meme lieu oú le code serveur est mis. 
+5-installer flutter et creer une nouvelle application avec flutter create my_app
+puis cd my_app.
+6-copier le code du FlutterCode.dart et le mettre dans votre main.dart de l'application crée
+7-Ajouter ces deux dépendances dans le fichier pubspec.yaml sous dependencies: 
+image_picker: ^1.0.4
+web_socket_channel: ^2.4.0
+puis dans le terminal saisir flutter pub get pour avoir les dependances.
+8-dans le code main.dart changer l'adresse IP et le port qui doit etre les memes du server.
+9-dans widget_test.dart s'il ya vait un erreur: supprimer "const" avant MyApp()
+10-activer le mode développeur de votre smartphone et le connecter a votre  machine, puis dans votre terminal saisir flutter run pour installer l'application dans votre smartphone.
+11-Après l'installation executer les codes des noeuds et du server puis vous pouvez envoyer des images a partir de plusieurs smartphones et recevoir la prédiction ( préférable que l'image capturé soit horizontale)
